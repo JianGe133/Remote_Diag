@@ -207,7 +207,7 @@ class MainForm(QMainWindow, Ui_MainWindow):
 
     def send_socket(self):
         input_data = self.lineEdit_InputData.text()
-        self.sendMessage(input_data.encode('utf-8'))
+        self.sendMessage(input_data)
 
 
     def receive_data_parse(self, data_string):
