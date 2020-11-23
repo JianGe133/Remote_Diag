@@ -33,6 +33,9 @@ class MainForm(QMainWindow, Ui_MainWindow):
         self.checkBox_PhysicalAddr.toggled.connect(self.set_physicaladdr)
         self.checkBox_FunctionAddr.toggled.connect(self.set_functionaddr)
         self.radioButton_TesterPresent.toggled.connect(self.set_tester_present)
+        self.pushButton_ClearLog.clicked.connect(self.clear_log)
+        self.pushButton_SaveLog.clicked.connect(self.save_log)
+        #self.pushButton.clicked.connect(self.receive_data_parse)
 
         self.serverIP = ''
         self.port = 1
@@ -41,6 +44,7 @@ class MainForm(QMainWindow, Ui_MainWindow):
         self.ResponseID = ''
         self.DTC_excel_path = ''
         self.save_config_path = ''
+        self.save_log_path = ''
         self.security_dll_path = ''
         self.canType = '0'
         self.testerPresentFlag = 0
@@ -73,31 +77,44 @@ class MainForm(QMainWindow, Ui_MainWindow):
     def tcp_disconnect(self):
         if not self.isConnectedToServer:
             return
-        try:
-            self.sock.connected.disconnect()
-        except:
-            pass
 
-        try:
-            self.sock.disconnected.disconncet()
-        except:
-            pass
-
-        try:
-            self.sock.readyRead.disconncet()
-        except:
-            pass
-
-        try:
-            self.sock.bytesWritten.disconncet()
-        except:
-            pass
+        self.sock.connected.disconnect()
+        # try:
+        #     self.sock.connected.disconnect()
+        # except:
+        #     pass
+        #
+        # try:
+        #     self.sock.disconnected.disconncet()
+        # except:
+        #     pass
+        #
+        # try:
+        #     self.sock.readyRead.disconncet()
+        # except:
+        #     pass
+        #
+        # try:
+        #     self.sock.bytesWritten.disconncet()
+        # except:
+        #     pass
         self.sock.close()
         self.pushButton_Connect.setEnabled(True)
         self.pushButton_Disconnect.setEnabled(False)
+
+        self.lineEdit_InputData.setEnabled(False)
+        self.pushButton_Send.setEnabled(False)
+        self.pushButton_DefaultSession.setEnabled(False)
+        self.pushButton_ProgramSession.setEnabled(False)
+        self.pushButton_ExtendedSession.setEnabled(False)
+        self.pushButton_BoschSession.setEnabled(False)
+        self.radioButton_TesterPresent.setEnabled(False)
+        self.pushButton_UnlockLevel1.setEnabled(False)
+        self.pushButton_UnlockLevel2.setEnabled(False)
+        self.pushButton_BoschUnlock.setEnabled(False)
+        self.pushButton_ReadDTCs.setEnabled(False)
+        self.pushButton_ClearDTCs.setEnabled(False)
         self.isConnectedToServer = False
-
-
 
     def tcp_connect(self):
         if self.serverIP == '' or self.port == 1:
@@ -121,8 +138,7 @@ class MainForm(QMainWindow, Ui_MainWindow):
         self.sock.disconnected.connect(self.on_socket_disconnected)
         self.sock.readyRead.connect(self.on_socket_receive)
         self.sock.bytesWritten.connect(self.on_socket_transmit)
-        #self.textBrowser_Log.append('Connect success！ ')
-        self.update_event_log('Connect success！ ')
+        self.update_event_log('Connect success !')
         self.isConnectedToServer = 1
         self.pushButton_Connect.setEnabled(False)
         self.pushButton_Disconnect.setEnabled(True)
@@ -146,17 +162,44 @@ class MainForm(QMainWindow, Ui_MainWindow):
     def on_socket_disconnected(self):
         #self.textBrowser_Log.append('Disconnected from server')
         self.update_event_log('Disconnected from server')
+        self.pushButton_Connect.setEnabled(True)
+        self.pushButton_Disconnect.setEnabled(False)
 
     def on_socket_receive(self):
         rxData = self.sock.readAll()
         print('type(rxData)', type(rxData))  # QByteArray
-        data_string = rxData.data().decode('utf-8')
+        data_string = rxData.data().decode('gbk')  # utf-8
+        print('data_string:', data_string)
+        #data_string = 'Timestamp: 1606098797.167605        ID: 079b    S                DLC:  8    03 7f 10 7e aa aa aa aa     Channel: can0'
+        id, dlc, rx_data_str = self.rx_data_parse(data_string)
         if self.showTitleFlag == 0:
             self.textBrowser_Log.append('        Time      ' + '    Dir   ' + '  ID   ' + ' Data')
         runtime = time.perf_counter()
         runtime = datetime.timedelta(seconds=runtime)
-        self.textBrowser_Log.append(str(runtime) + '   Rx   ' + self.ResponseID + '    ' + data_string)
+        self.textBrowser_Log.append(str(runtime) + '   Rx   ' + id + '    ' + rx_data_str)
         self.showTitleFlag = 1
+
+    def rx_data_parse(self, data_string):
+        print(data_string.split())
+        print(type(data_string.split()))
+
+        data_list = data_string.split()
+        id = data_list[3].lstrip('0')
+        dlc = data_list[6]
+        can_data_list = data_list[-10:-2]
+
+        print('Rx ID: ', data_list[3])
+        print('RX DLC: ', data_list[6])
+        print('RX Data: ', data_list[-10:-2])
+        temp = ''
+        for i in range(int(dlc)):
+            temp = temp + can_data_list[i]
+
+        rx_data_str = temp
+        print('rx_data_str: ', rx_data_str)
+
+        return id, dlc, rx_data_str
+
 
     def on_socket_transmit(self):  # After buff bytes writen
         pass
@@ -165,6 +208,20 @@ class MainForm(QMainWindow, Ui_MainWindow):
     def send_socket(self):
         input_data = self.lineEdit_InputData.text()
         self.sendMessage(input_data)
+
+
+    def receive_data_parse(self, data_string):
+        data_string = '5902091008708'
+        #data_int = int(data_string)
+        hex = self.str_to_hex(data_string)
+        print(hex)
+        # if '590209' in data_string:
+        #     print(1)
+
+    def str_to_int(s):
+        print(s)
+        return ' '.join([hex(ord(c)).replace('0x', '') for c in s])
+
 
     def send_1001(self):
         self.sendMessage('1001')
@@ -197,22 +254,46 @@ class MainForm(QMainWindow, Ui_MainWindow):
         self.textBrowser_Log.append(message)
         self.showTitleFlag = 0
 
+    def clear_log(self):
+        self.textBrowser_Log.clear()
+        self.showTitleFlag = 0
+
+    def save_log(self):
+        text = self.textBrowser_Log.toPlainText()
+        text_string = str(text)
+        home_dir = os.getcwd()
+        save_log_path, _ = QFileDialog.getSaveFileName(self,
+                                                          'Save log file',
+                                                          home_dir,
+                                                          'TXT Files (*.txt);;All Files (*)')
+        print('save_log_path: ', save_log_path)
+
+        if save_log_path != '':
+            self.save_log_path = save_log_path
+            with open(save_log_path, 'w') as cf:  # 'w' - overwrite and new create, 'a' - append
+                cf.write('{}'.format(text_string))
+            self.update_event_log('Log is saved, path: ' + save_log_path)
+        else:
+            pass  # cancel and do nothing
+
     def sendMessage(self, message):
-        if self.showTitleFlag == 0:
-            self.textBrowser_Log.append('        Time      ' + '    Dir   ' + '  ID   ' + ' Data')
         if message != '':
+            if self.showTitleFlag == 0:
+                self.textBrowser_Log.append('        Time      ' + '    Dir   ' + '  ID   ' + ' Data')
             print('self.testerPresentFlag:', self.testerPresentFlag)
-            whole_message = self.canType + str(self.testerPresentFlag) + self.addrMethod + self.PhysicalID + self.FunctionID + self.ResponseID + message
+            valid_data_length = int(len(message)/2)
+            str_valid_data_lenth = '0' + str(valid_data_length)
+            whole_message = self.canType + str(self.testerPresentFlag) + self.addrMethod + self.PhysicalID + self.FunctionID + self.ResponseID + str_valid_data_lenth + message
             message_coded = whole_message.encode('gbk')
             runtime = time.perf_counter()
             runtime = datetime.timedelta(seconds=runtime)
-            #runtime = time.strftime("%H:%M:%S", time.gmtime(runtime))
             if self.addrMethod == '0':
                 tx_id = self.PhysicalID
             else:
                 tx_id =self.FunctionID
             self.sock.write(message_coded)
             print('Actual send: ', message_coded)
+            message = str_valid_data_lenth + message
             self.textBrowser_Log.append(str(runtime) + '   Tx   ' + tx_id + '    ' + message)
             self.showTitleFlag = 1
         else:
@@ -436,17 +517,12 @@ class MainForm(QMainWindow, Ui_MainWindow):
                     QMessageBox.information(self.form1, 'Message', 'Please load correct config txt', QMessageBox.Ok,
                                             QMessageBox.Ok)
                     break
+            self.update_event_log('Loaded config file: ' + config_path)
 
     def save_config_file(self):
         if self.serverIP == '' or self.port == 1 or self.PhysicalID == '' or self.FunctionID == '' or self.ResponseID == '' or self.security_dll_path == '' or self.DTC_excel_path == '':
             QMessageBox.information(self.form1, 'Message', 'Please check blank in content', QMessageBox.Ok, QMessageBox.Ok)
             return
-        # port = self.ui1.lineEdit_Port.text()
-        # self.port = int(port)
-        # self.serverIP = self.ui1.lineEdit_IP.text()
-        # self.PhysicalID = self.ui1.lineEdit_PhysicalID.text()
-        # self.FunctionID = self.ui1.lineEdit_FunctionID.text()
-        # self.ResponseID = self.ui1.lineEdit_ResponseID.text()
         home_dir = os.getcwd()
         save_config_path, _ = QFileDialog.getSaveFileName(self.form1,
                                                        'Save config file',
@@ -470,47 +546,47 @@ class MainForm(QMainWindow, Ui_MainWindow):
             pass  # cancel and do nothing
 
 
-class SocketThreads(QtCore.QThread):
-
-    trigger = QtCore.pyqtSignal(str)
-
-    def __init__(self, ip_string, port_string, input_data, parent=None):
-        super(SocketThreads, self).__init__(parent)
-        self.ip_string = ip_string
-        self.port_string = port_string
-        self.input_data = input_data
-        self.Rx_message = ''
-
-    def run(self):
-        if (self.ip_string != '') and (self.port_string != ''):  # TODO,ip_string and Port_string format check
-            port_int = int(self.port_string)
-            s = socket.socket()
-            self.Rx_message = 'Start to connect Server: IP - ' + self.ip_string + ' Port - ' + self.port_string + '...'
-            self.trigger.emit(self.Rx_message)
-            try:
-                s.connect((self.ip_string, port_int))  # connect server
-                self.Rx_message = '......Success......'
-                self.trigger.emit(self.Rx_message)
-            except:
-                print('Failed')  # TODO, or pop a warning window
-                self.Rx_message = 'Failed, please check the config of IP and Port or network connection'
-                self.trigger.emit(self.Rx_message)
-                return
-            while True:
-                #data = input('data: ')
-                data = self.input_data  # first frame is empty,TODO
-                if data != '':
-                    s.send(data.encode())  # send information
-                    recv = s.recv(1024).decode()
-                    print(recv)
-                    print('type of recv: ', type(recv))
-                    self.Rx_message = recv
-                    self.trigger.emit(self.Rx_message)
-                else:
-                    pass  # no send, only connect
-                if data == 'close':
-                    break
-            s.close()
+# class SocketThreads(QtCore.QThread):
+#
+#     trigger = QtCore.pyqtSignal(str)
+#
+#     def __init__(self, ip_string, port_string, input_data, parent=None):
+#         super(SocketThreads, self).__init__(parent)
+#         self.ip_string = ip_string
+#         self.port_string = port_string
+#         self.input_data = input_data
+#         self.Rx_message = ''
+#
+#     def run(self):
+#         if (self.ip_string != '') and (self.port_string != ''):  # TODO,ip_string and Port_string format check
+#             port_int = int(self.port_string)
+#             s = socket.socket()
+#             self.Rx_message = 'Start to connect Server: IP - ' + self.ip_string + ' Port - ' + self.port_string + '...'
+#             self.trigger.emit(self.Rx_message)
+#             try:
+#                 s.connect((self.ip_string, port_int))  # connect server
+#                 self.Rx_message = '......Success......'
+#                 self.trigger.emit(self.Rx_message)
+#             except:
+#                 print('Failed')  # TODO, or pop a warning window
+#                 self.Rx_message = 'Failed, please check the config of IP and Port or network connection'
+#                 self.trigger.emit(self.Rx_message)
+#                 return
+#             while True:
+#                 #data = input('data: ')
+#                 data = self.input_data  # first frame is empty,TODO
+#                 if data != '':
+#                     s.send(data.encode())  # send information
+#                     recv = s.recv(1024).decode()
+#                     print(recv)
+#                     print('type of recv: ', type(recv))
+#                     self.Rx_message = recv
+#                     self.trigger.emit(self.Rx_message)
+#                 else:
+#                     pass  # no send, only connect
+#                 if data == 'close':
+#                     break
+#             s.close()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
