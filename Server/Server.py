@@ -4,7 +4,8 @@ import socket
 sk = socket.socket(socket.AF_INET, socket.SOCK_STREAM)    # family=AF_INET, type=SOCK_STREAM socket中的两个参数，
 # family表示ipv6/ipv4，type表示传输协议，SOCK_STREAM表示的就是TCP协议
 
-address = ('127.0.0.1', 9999)
+address = ('192.168.43.4', 9999)
+# address = ('175.24.119.43', 9999)
 
 sk.bind(address)
 
