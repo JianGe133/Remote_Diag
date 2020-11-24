@@ -171,12 +171,20 @@ class MainForm(QMainWindow, Ui_MainWindow):
         data_string = rxData.data().decode('gbk')  # utf-8
         print('data_string:', data_string)
         #data_string = 'Timestamp: 1606098797.167605        ID: 079b    S                DLC:  8    03 7f 10 7e aa aa aa aa     Channel: can0'
-        id, dlc, rx_data_str = self.rx_data_parse(data_string)
-        if self.showTitleFlag == 0:
-            self.textBrowser_Log.append('        Time      ' + '    Dir   ' + '  ID   ' + ' Data')
+        rx_data_str = ''
         runtime = time.perf_counter()
         runtime = datetime.timedelta(seconds=runtime)
-        self.textBrowser_Log.append(str(runtime) + '   Rx   ' + id + '    ' + rx_data_str)
+        if self.showTitleFlag == 0:
+            self.textBrowser_Log.append('        Time      ' + '    Dir   ' + '  ID   ' + ' Data')
+        if data_string == 'No response from target device':
+            rx_data_str = data_string
+            self.textBrowser_Log.append(str(runtime) + '   Rx   ' + '  ' + '    ' + rx_data_str)
+
+        else:
+            print('2')
+            id, dlc, rx_data_str = self.rx_data_parse(data_string)
+            self.textBrowser_Log.append(str(runtime) + '   Rx   ' + id + '    ' + rx_data_str)
+
         self.showTitleFlag = 1
 
     def rx_data_parse(self, data_string):
@@ -292,6 +300,8 @@ class MainForm(QMainWindow, Ui_MainWindow):
             else:
                 tx_id =self.FunctionID
             self.sock.write(message_coded)
+            # data_test = 1
+            # self.sock.write(data_test.encode('utf-8'))
             print('Actual send: ', message_coded)
             message = str_valid_data_lenth + message
             self.textBrowser_Log.append(str(runtime) + '   Tx   ' + tx_id + '    ' + message)
